@@ -1,0 +1,919 @@
+# Correcciones al documento principal (Cap. I–V)
+
+Este archivo lista las ediciones exactas que deben aplicarse al **cuerpo de la tesis**
+(que en el repositorio solo existe como PDF, por lo que no es editable desde aquí).
+Los Anexos 1 y 2 (`.docx`) ya fueron corregidos y regenerados.
+
+Criterio: el software se alineó a la tesis (Camino A). Las versiones de librerías se
+mantienen **como están instaladas** en el software.
+
+---
+
+## Item 1 — Tabla 3.1 (Herramientas computacionales) y §1.5.2
+
+**Antes**
+- Tabla 3.1 incluye filas: `Persim 0.3.x` (Visualización de diagramas, distancia de Wasserstein) y `PyTorch 2.x` (Diferenciación automática).
+- Versiones listadas: NumPy 1.26, SciPy 1.12, Matplotlib 3.8, scikit-learn 1.4.
+- §1.5.2: «Python 3.11+Ripser 0.6, Persim 0.3, PyTorch 2.x, NumPy 1.26, SciPy 1.12, Matplotlib 3.8 y scikit-learn 1.4».
+
+**Después**
+- **Eliminar** las filas `Persim` y `PyTorch` (no se usan: las distancias bottleneck/Wasserstein están implementadas en NumPy puro).
+- Versiones (instaladas): `numpy>=2.1`, `scipy>=1.14`, `scikit-learn>=1.5`, `matplotlib>=3.9`, `plotly>=5.24`, `gudhi>=3.13`, `ripser` (0.6.x), Python 3.11+ (entorno validado en 3.12).
+- §1.5.2 → «Python 3.11+ (validado en 3.12), Ripser 0.6, GUDHI 3.13, NumPy ≥2.1, SciPy ≥1.14, Matplotlib ≥3.9 y scikit-learn ≥1.5».
+
+**Razón:** Ni PyTorch ni Persim aparecen en el código; declararlos rompe la trazabilidad.
+
+---
+
+## Item 2 — Método del optimizador (MMA → OC)
+
+**Antes** (Anexo): «El optimizador implementado utiliza el método **MMA** (Method of Moving Asymptotes)…».
+
+**Después** (Anexo, ya corregido) y cuerpo: el solver usa **Criterio de Optimalidad (OC)** con actualización `ρ_e·(−∂c/∂ρ_e / λ)^{1/2}` y bisección del multiplicador — exactamente el Algoritmo 2.
+
+**Razón:** No existe MMA en el código; el Algoritmo 2 del propio Cap. IV ya describe OC. (Anexo corregido; verificar que §2.2.3 y Anexo coincidan.)
+
+---
+
+## Item 3 — Filtro de densidad (Algoritmo 2, paso 7)
+
+**Antes:** implícito/ambiguo; el software usaba filtro de sensibilidad.
+
+**Después:** dejar explícito en §2.2.3 y en el Algoritmo 2 que el filtro es **de densidad**:
+
+```
+ρ̃ ← H(ρ)/Hs ,   Hs = Σ_f ĥ_ef
+```
+
+La densidad física que entra al ensamble FEM es la filtrada `ρ̃` (no `ρ` cruda).
+
+**Razón:** El Algoritmo 2 (paso 7) ya lo dice; el software ahora lo implementa así. Efecto: `c_SIMP` pasa de ≈70.2 (sensibilidad) a ≈74.7 (densidad).
+
+---
+
+## Item 4 — Tolerancia de convergencia (§3.4.3)
+
+**Antes:** «… cambio máximo en densidades menor que **10⁻³** entre iteraciones consecutivas.»
+
+**Después:** «… cambio máximo en densidades menor que **10⁻²** entre iteraciones consecutivas.»
+
+**Razón:** Contradicción interna: el Algoritmo 2 (paso 24) y la Tabla 4.4 fijan `Δρ < 10⁻²`. El código usa `tol_rho = 1e-2`. Unificar en 10⁻².
+
+---
+
+## Item 5 — Escala del material y la carga (E0)
+
+**Antes:** Anexo §3.2 «Módulo Young (E0) = 200000 MPa»; §3.4.1 «carga puntual».
+
+**Después:** los resultados del Cap. V corresponden a **material y carga normalizados (`E0 = 1`, `F = 1`)** con **elementos unitarios** (`Lx = nex`, `Ly = ney`). Añadir en Tabla 5.6 una nota: «valores en unidades normalizadas (E0 = 1, F = 1, espesor 1)». Si se prefiere mantener E0 = 200000, entonces deben recalcularse TODOS los valores del Cap. V (316.34 / 39.54 / 75.55).
+
+**Razón:** `c_uniforme = 316.342` y `c_sólido = 39.543` se reproducen exactamente con `E0 = 1, F = 1, Lx = 60, Ly = 30`; con `E0 = 200000` dan 4717.7 / 589.7. El Anexo y el Cap. V se contradicen.
+
+---
+
+## Item 6 — Malla del barrido (Tabla 1.1 vs Figura 5.6) — NO requiere corrección (solo aclarar)
+
+**Estado:** revisado. La Tabla 1.1 y la Figura 5.6 **son coherentes entre sí**, siempre que el estudio de independencia de malla se entienda sobre el **dominio cuadrado 60×60**:
+- `Ne ∈ {1600, 6400, 14400}` = 40², 80², 120² (dominio cuadrado).
+- `rmin ∈ {1.6, 3.2, 4.8}` = 2.4·(nx/60) con nx = 40, 80, 120.
+
+**Acción:** añadir una aclaración de que el barrido de H.E.2b usa el **dominio cuadrado 60×60** (para que no se lea asumiendo la viga 2:1 del caso base). El software ya lo implementa así; **no hay que cambiar los números**.
+
+---
+
+## Item 7 — Valor de β₁ del diseño
+
+**Antes** (Anexo, Hallazgo 3): «p = 3 … manteniendo **B1 = 2**».
+
+**Después:** «… manteniendo **β₁ = 3**».
+
+**Razón:** El Cap. V y el software dan `β₁ = 3` (verificado con doble cómputo Euler/GUDHI). (Anexo ya corregido.)
+
+---
+
+## Item 8 — Tabla 4.3 (Módulos del software)
+
+**Antes:** `config.py, geometria.py, tda.py, fem_simp.py, betti2d.py, figuras.py, experimentos.py`.
+
+**Después** (módulos reales):
+
+| Módulo | Objetivo | Responsabilidad |
+|---|---|---|
+| `core/fem.py` | OE3 | Q4, ensamble, solver, sensibilidades, OC |
+| `core/betti2d.py` | OE3/4 | Doble cómputo β₀/β₁ (Euler + GUDHI) |
+| `core/topology.py` | OE2 | Distancias bottleneck/Wasserstein (NumPy), homología |
+| `optimization/metric_simp.py` | OE3 | Bucle SIMP (Algoritmo 2) + fase TDA |
+| `analysis/stability.py` | OE2 | Barrido de ruido, cotas, McNemar, q* |
+| `processing/sampling.py` | OE2 | Catálogo de 7 nubes, ruido, transformación afín |
+| `simulation/experiment_simp.py` | OE3/4 | Experimento headless + CSV |
+
+**Razón:** Los nombres de la Tabla 4.3 no existen en el repositorio; la trazabilidad prometida es inverificable.
+
+---
+
+## Item 9 — μ_α y H.G.
+
+**Antes:** Anexo 1 §2.2 «Métrica compuesta μ_α = c + α·β₁…» y módulo «H.G.».
+
+**Después:** eliminados del software, del Anexo y del manual. El cuerpo de la tesis (Cap. I–V) ya las excluye (Tabla 1.2, «fuera del alcance»); no requiere cambios, solo verificar que no reaparezcan.
+
+**Razón:** Camino A — la tesis solo evalúa la topología *post hoc*; μ_α era regularización en el bucle (fuera de alcance).
+
+---
+
+## Item 10 — Valor de compliance del diseño SIMP
+
+**Antes** (Tabla 5.6 / §5.4.2): `c_SIMP = 75.55`, reducción `76.12 %`.
+
+**Después:** `c_SIMP = 74.72`, reducción `76.38 %`.
+
+**Razón:** Con el filtro de densidad correcto, el diseño converge a `c = 74.72` (iter 92). El valor `75.55` corresponde a la meseta en la iteración ~25 (la propia §5.4.2 dice «se estabiliza en c = 75.6 **alrededor de la iteración 25**»). Se adopta el valor **convergido** para que el número sea reproducible. `c_uniforme = 316.342` y `c_sólido = 39.543` coinciden con la tesis sin cambios.
+
+---
+
+## Item 11 — H.E.1a: forma de la cota (corrección matemática)
+
+**Antes** (Cap. I H.E.1a, Fig. 5.3, Tabla 5.5): la cota se enuncia como `dB(Dgmk VR(X), Dgmk VR(Y)) ≤ 2q·diam(X)` y la Fig. 5.3 contrasta `dB/diam` con `2q`.
+
+**Después:** `dB(Dgmk VR(X), Dgmk VR(Y)) ≤ 2·dH(X, Y)` (k = 0,1), la forma del Teorema de Estabilidad (Cohen-Steiner, Edelsbrunner & Harer). La Fig. 5.3 pasa a graficar `dB/dH` contrastado con la cota `2`, y la Tabla 5.5, fila 1, pasa a `dB ≤ 2·dH`.
+
+**Estado: IMPLEMENTADO.** La Fig. 5.3 (app y `visualization.figuras`) grafica `dB/dH` vs la cota `2` con barras de error. Medición R=100, n=400: máximo `dB/dH = 1.92 < 2`, todas las curvas por debajo de la cota y ninguna la toca — consistente con la observación del documento. La antigua cota normalizada `dB/diam ≤ 2q` se retira (no es consecuencia del teorema).
+
+> **Actualización (Item 25):** por decisión posterior del autor, la Fig. 5.3 **vuelve a la forma literal del PDF** (`dB/diam(X)` vs `2q`). Este Item queda **superado** por el Item 25 en lo que respecta a la figura; el análisis matemático (la cota `dB/diam ≤ 2q` no es consecuencia del teorema y no se sostiene con la métrica exacta) sigue siendo válido y se conserva como nota.
+
+**Razón (con evidencia):** con el ruido definido en la propia tesis (`σ = q·diam(X)`), se tiene `dH(X,Y) ≈ 3σ = 3q·diam(X)`, no `q·diam(X)`. Por tanto `2dH ≈ 6q·diam`, y la cota `≤ 2q·diam` es ~3× más ajustada de lo que el teorema permite. Medición (20 réplicas, n=400):
+
+| Nube | frac(dB/diam ≤ 2q) | frac(dB ≤ 2dH) |
+|---|---|---|
+| círculo | 0.00 | 1.00 |
+| anillo | 0.50 | 1.00 |
+| toro | 0.45 | 1.00 |
+| disco | 1.00 | 1.00 |
+
+La forma `dB ≤ 2dH` se cumple en el **100 %** de las réplicas (lo que el documento ya afirma en su Fig. 5.2(b)); la forma `dB/diam ≤ 2q` no es implicada por el teorema y no se sostiene empíricamente. Es la distinción que la propia Tabla 5.4 del documento establece.
+
+> **Re-medición (Items 29–31):** con el ruido corregido `σ = q·diam/√d`, el catálogo
+> corregido y la distancia bottleneck **exacta** (Item 14 corregido), sobre las 1 680
+> réplicas de la Fig. 5.2, dimensión nativa:
+>
+> | Nube | `frac(dB/diam ≤ 2q)` para q = 0,05 / 0,10 / 0,15 / 0,20 | máx `dB/dH` |
+> |---|---|---|
+> | círculo | 0,00 / 0,00 / 0,00 / 0,00 | 1,52 |
+> | dos_círculos | 0,00 / 0,05 / 1,00 / 1,00 | 1,78 |
+> | anillo | 0,90 / 0,60 / 0,25 / 1,00 | 1,37 |
+> | toro, disco, esfera, gaussiana | 1,00 en todos | ≤ 0,91 |
+>
+> `frac(dB ≤ 2dH)` = **1,00** en las 560 réplicas nativas. La conclusión se mantiene:
+> **círculo y dos_círculos violan `2q`** en los niveles bajos, y `dB/diam ≤ 2q` no es
+> consecuencia del teorema. (Una medición previa de esta misma nota usó la bottleneck
+> con el objetivo equivocado —Item 14— y daba 0,50 para el anillo en q = 0,10.)
+
+**Consecuencia:** no cambia H.E.1a (sigue cumpliéndose al 100 %), solo la **notación de la cota**. H.E.1b y H.E.1c no se ven afectadas.
+
+---
+
+## Item 12 — H.E.1b: clasificador euclidiano de referencia y veredicto
+
+> **SUPERADO por el Item 37.** La decisión vigente es que **prevalece el PDF**: H.E.1b queda como piloto no concluyente (0,950 vs 0,925). El protocolo reproducible se conserva como evidencia exploratoria, sin cambiar el veredicto documentado.
+
+**Antes:** el Cap. V / Tabla 5.5 reportan exactitud 0.950 (TDA) vs 0.925 (euclidiano), McNemar **no significativo** → H.E.1b = ×. El documento no especifica la forma exacta del clasificador euclidiano (solo que es "espectro PCA + inercia de k-medias + dispersión radial").
+
+**Después:** el clasificador euclidiano se define como vecino-más-cercano sobre el descriptor compuesto **[espectro PCA, inercia de k-medias, dispersión radial]**, entrenado en muestras **limpias** y evaluado bajo deformación afín. Con el método fiel, la medición (n=400, 200/clase, semilla 42) da **TDA ≈ 0.905 vs Eucl ≈ 0.550**, McNemar p < 0.001 → **H.E.1b se sostiene** (el descriptor topológico supera significativamente al euclidiano).
+
+**Razón:** el documento deja **sin definir** el clasificador euclidiano; reproducir su 0.925 exigiría un ajuste no documentado. Además, §5.6(a) del propio documento observa que "la dispersión radial... falla si el conjunto se deforma", consistente con un euclidiano débil bajo afín (y con el resultado positivo), **no** con 0.925.
+
+**Consecuencia:** reconciliar la Tabla 5.5 (fila "Exactitud TDA vs euclidiana") y §5.6 con el clasificador definido; el veredicto de H.E.1b pasa a **"se sostiene"** (significativo) bajo el protocolo fiel.
+
+---
+
+## Item 13 — Fig. 5.1: la definición βk no reproduce su plateau 7/7
+
+> **RETRACTADO por el Item 30.** La premisa de este item («con βk no existe ventana 7/7»)
+> era **falsa**: provenía de un catálogo con geometría equivocada y de una gaussiana sin
+> truncar. Con el catálogo corregido (Item 30), **βk = (β₀, β₁) sí alcanza 7/7**, en un
+> único punto **τ\* = 0,175**. Se conserva el item íntegro por trazabilidad; la
+> «Resolución adoptada» de abajo (calibrar sobre β₁) **queda anulada**: la calibración
+> vuelve a βk, como dice el pie de la figura. Solo queda pendiente recalcular q\* y la
+> Tabla 5.5 con τ = 0,175 (pasada de la Fig. 5.2).
+
+**Hecho:** la calibración de τ se calcula sobre **βk = (β₀, β₁)** (Def. 8.1 / Tabla 1.1 / pie de Fig. 5.1), con `βk(τ) = #{(b,d) : d−b > τ·diam}`.
+
+**Inconsistencia del documento:** el pie y la definición usan βk (y citan "con τ=0.05 la esfera reporta (179,21)"), pero el **plateau 7/7 en τ∈[0.15, 0.20]** que muestra la Fig. 5.1 **solo se obtiene con β₁**:
+
+| τ | βk=(β₀,β₁) | sólo β₁ |
+|---|---|---|
+| 0.05 | 2/7 | 3/7 |
+| 0.15 | 5/7 | 7/7 |
+| 0.17 | 6/7 | 7/7 |
+| 0.20 | 6/7 | 7/7 |
+| 0.25 | 5/7 | 5/7 |
+
+Con βk, `esfera` y `gaussiana` leen β₀ = 2–3 (las H₀ de una muestra finita tienen merges que superan τ·diam), de modo que **no existe ventana 7/7** y el Algoritmo maestro abortaría ("no existe ventana de τ con acierto total").
+
+**Consecuencia:** la Fig. 5.1 debe reportar el máximo real alcanzado por βk (6/7) y su ventana, **o** reformularse para β₁ (única forma de obtener el plateau 7/7). La app implementa βk (fiel al pie) y reporta el máximo obtenido.
+
+**Resolución adoptada (medición de la app):** la calibración (Fig. 5.1) y el criterio de **q\*** (H.E.1c) se computan sobre **β₁** —el invariante que la filtración controla—; la **Fig. 5.2(a)** grafica **βk = (β₀, β₁)** como el documento. Con β₁, la calibración alcanza **7/7** en τ ∈ [0.15, 0.18] (τ = 0.15 en el borde inferior, como el documento) y H.E.1c da **q\* ≈ 0.05 ∈ [0.05, 0.10]** (acierto 0.99 para q ≤ 0.05). Con βk (β₀ umbralizado) no se alcanza ni el plateau 7/7 ni el q* del documento. **Acción:** cambiar «βk» por «β₁» en el pie de la Fig. 5.1, en el criterio de q* y en las filas «Acierto de βk» de la Tabla 5.5; la Fig. 5.2(a) sí queda en βk.
+
+---
+
+## Item 14 — Implementación exacta de la distancia bottleneck
+
+**Antes:** `topology.bottleneck_distance` era una heurística greedy con norma L2
+(vecino más cercano + proyección a la diagonal). Además, en `he_protocols.bottleneck_cota`
+y `stability.verificar_cota_bottleneck` un diagrama vacío devolvía `0.0`, ocultando
+violaciones.
+
+**Después:** la distancia se calcula con la **definición estándar exacta**
+(Cohen-Steiner et al. 2007): costo L∞ y emparejamiento resuelto por asignación
+húngara (`scipy.optimize.linear_sum_assignment`) sobre `(A ∪ Δ)` vs `(B ∪ Δ)`,
+con costo punto–diagonal = persistencia/2. Los diagramas vacíos se resuelven
+contra la diagonal, nunca como 0.
+
+**Razón (con evidencia):** la heurística subestimaba o sobreestimaba dB de forma
+no sistemática (p. ej. círculo H₁: 0.674 vs exacto 0.672; toro H₀: 0.738 vs 0.761).
+La Tabla 1.1 declara el instrumento como `Persim 0.3`; la versión exacta coincide
+con persim/gudhi pero sin dependencia adicional.
+
+**Consecuencia:** la verificación de H.E.1a pasa a ser concluyente. Con la métrica
+exacta, `dB ≤ 2·dH` se cumple en **20/20** réplicas por nube (q = 0.10). El corolario
+normalizado `dB/diam ≤ 2q` —no implicado por el teorema— falla en círculo (0/20) y
+dos_círculos (1/20), en línea con el Item 11.
+
+---
+
+## Item 15 — Veredicto H.E.2b: se excluye p = 1
+
+**Antes:** el veredicto final del barrido evaluaba la invariancia de β₁ sobre
+`p ∈ {1,2,3,4}`. Como `p = 1` no penaliza (diseño gris, β₁ = 0 sin frontera
+sólido/vacío), el veredicto se marcaba "varía" aunque el método fuera correcto.
+
+**Después:** la invariancia se evalúa sobre `p ∈ {2,3,4}` (rango recomendado por
+la literatura y por la propia §5.5.2 del documento), tanto en el barrido como en
+el veredicto. `p = 1` se reporta como referencia, no como invariante.
+
+**Razón:** H.E.2b afirma invariancia "en el rango recomendado"; incluir p = 1 es
+un veto espurio.
+
+---
+
+## Item 16 — Techo de iteraciones, registro de entorno y reconstrucción E3
+
+**Antes:** la UI limitaba `max_iter` a 200; no se exportaba registro de entorno;
+las figuras solo se rasterizaban desde la sesión de Streamlit.
+
+**Después:**
+- `max_iter` por defecto 300 (Algoritmo 2, paso 24), ajustable en UI hasta 500.
+- Cada ZIP incorpora `entorno.json` (entregable E5): Python, plataforma, versiones
+  de paquetes, semilla y parámetros de la corrida.
+- Nuevo módulo `src/tda/visualization/figuras.py` (entregable E3): reconstruye las
+  figuras 5.1–5.7 **sin Streamlit**, por script, desde los protocolos o CSV, con
+  los ejes y escalas del documento. CLI: `python -m tda.visualization.figuras --todos`.
+
+**Razón:** reproducibilidad verificable (F6) y trazabilidad de las figuras.
+
+---
+
+## Item 17 — Fig. 5.6: β₁ = 0 en el PDF (RETRACTA una lectura previa)
+
+**Corrección:** una versión anterior de este documento afirmó que la Fig. 5.6 del PDF
+mostraba $\beta_1 = 3$. La inspección directa de la imagen del PDF (pág. 48, render a
+300 dpi) muestra que la línea verde de $\beta_1$ está **en 0** (alineada con el `0` del
+eje derecho). Por lo tanto **coincide con el software** ($\beta_1 = 0$, estable en todo
+el barrido de malla cuadrada). No hay inconsistencia de $\beta_1$; la afirmación previa
+queda **retirada**.
+
+**Razón del error:** se tomó el $\beta_1 = 3$ del caso base (viga 60×30, Figs. 5.4–5.5)
+y se atribuyó por error a la Fig. 5.6 (dominio cuadrado).
+
+---
+
+## Item 18 — Fig. 5.7: el barrido de umbral debe usar el Método B (GUDHI)
+
+**Hecho (con evidencia):** el barrido de binarización sobre la viga 60×30 da resultados
+opuestos según el método para $u \ge 0.90$:
+
+| $u$ | Euler (A) $\beta_0/\beta_1$ | GUDHI (B) $\beta_0/\beta_1$ |
+|---|---|---|
+| 0.05–0.85 | 1 / 3 | 1 / 3 |
+| 0.90 | **5 / 7** | **1 / 3** |
+| 0.95 | 3 / 3 | **1 / 1** |
+
+**Causa:** `betti_euler` cuenta $\beta_0$ con 4-conectividad pero $\chi = V - E + F$
+sobre la unión geométrica, donde píxeles que se tocan en diagonal **sí** están
+conectados. Al fragmentarse el sólido ($u$ alto), cada contacto diagonal genera un
+agujero fantasma ($\beta_1 = \beta_0 - \chi$ deja de ser válida). La homología
+cúbica de GUDHI es autoconsistente y no sufre este artefacto.
+
+**Después:** las curvas de la Fig. 5.7 (app y `visualization.figuras`) se calculan
+con el Método B (GUDHI), con fallback a Euler si GUDHI no está instalado. El doble
+cómputo se conserva como **chequeo de concordancia** (la app advierte los umbrales
+donde difieren en vez de ocultarlo). El barrido se extiende a
+$u \in [0.05, 0.95]$ (19 puntos) para cubrir el rango del PDF, donde $\beta_1$
+cae 3→1. Con GUDHI la figura reproduce al PDF: meseta $\beta_1 = 3$, $\beta_0 = 1$,
+volumen en dash-dot gris con eje ajustado a los datos, y texto "umbral adoptado".
+
+**Consecuencia:** ningún veredicto cambia ($\beta_1 = 3$ en $u = 0.5$ lo dan ambos
+métodos). Solo la cola $u \ge 0.90$ de la Fig. 5.7.
+
+---
+
+## Item 19 — Fig. 5.2: estilo de paneles según el PDF (sin líneas guía 95/50)
+
+> **SUPERADO por el Item 31.** Este item describía la figura del PDF *original*
+> (un panel (a) y sin línea guía del 95 %). El Cap. V corregido trae cinco paneles
+> —(a1–a3) por dimensión ambiente, (b) y (c)— y **sí** dibuja la guía punteada en
+> 0,95. La app y el headless siguen ahora esa versión.
+
+**Hecho:** la Fig. 5.2 del PDF no trae líneas guía en 95 %/50 % (solo grilla tenue),
+usa un marcador distinto por nube, bandas con texto dentro ("fiable"/"no fiable")
+sin entradas de leyenda, ticks en $\{0, 0.05, \dots, 0.20\}$, y títulos de panel
+"(a) Colapso de la lectura de $\beta_k$" / "(b) Verificación empírica de la cota
+de estabilidad". El panel (b) lleva ejes $d_H(X,Y)$ / $d_B(\mathrm{Dgm}(X),
+\mathrm{Dgm}(Y))$, diagonal a todo el eje, texto en dos líneas ("región
+prohibida / por el teorema") sin sombreado, y leyenda con el $n$ real.
+
+**Después:** `fig_52a_tasa_acierto` / `fig_52b_cota_estabilidad` (app y
+`visualization.figuras`) replican ese estilo; la leyenda de (b) reporta el $n$
+real ($n = 3500$ con $R = 100$, frente a $n = 800$ del PDF).
+
+**Observaciones de datos (no se falsifican, se reportan):** (i) esfera en $q = 0$
+da 1.0 en el software vs 0.0 en el PDF — punto determinista ($Y \equiv X_0$), la
+diferencia viene de la muestra (semilla); (ii) anillo en $q = 0.10$ colapsa más
+abajo ($\approx 0.02$ vs $\approx 0.35$); (iii) el patrón general —colapso total en
+$q \ge 0.15$, $q^* \in [0.05, 0.10]$— coincide, ningún veredicto cambia.
+
+---
+
+## Item 20 — Fig. 5.3: forma del teorema (`dB/dH ≤ 2`) con estilo del PDF
+
+**Decisión del autor:** se mantiene la forma del Teorema de Estabilidad
+(`dB ≤ 2·dH`, Item 11) y se alinea **solo el estilo** al del PDF.
+
+**Evidencia de que la forma del PDF (`dB/diam ≤ 2q`) no es reproducible con la
+métrica exacta** (datos $R = 100$, semilla 42):
+
+| nube | `dB/diam` @ $q = 0.10$ | cota $2q = 0.20$ | fracción que cumple |
+|---|---|---|---|
+| círculo | **0.390** | 0.20 | **0.20** |
+| dos_círculos | 0.233 | 0.20 | 0.61 |
+| anillo | 0.167 | 0.20 | 0.91 |
+| disco | 0.086 | 0.20 | 1.00 |
+
+El círculo **duplica** la cota; la Fig. 5.3 del PDF (todas las curvas bajo la
+recta `2q`) se dibujó con la heurística greedy+L2 que subestimaba `dB` (Item 11).
+Con el teorema en su forma exacta (`dB/dH ≤ 2`) todas las curvas quedan por
+debajo de la cota ($\max dB/dH = 1.92$).
+
+**Estilo alineado al PDF:** título "Distancia bottleneck relativa frente a la
+cota"; leyenda arriba-izquierda en 2 columnas con "cota dB = 2 dH" como última
+entrada; ticks de $q$ cada 0.025; **convención de colores y marcadores por nube**
+idéntica a la Fig. 5.2(a) (anillo/círculo/disco/dos_círculos/esfera/gaussiana/toro
+en orden `tab10`), aplicada también a la 5.2(a). El eje Y queda en `dB/dH` (forma
+del teorema), no en `dB/diam` como el PDF.
+
+---
+
+## Item 21 — Fig. 5.4(b): estilo del PDF (título, ejes, referentes en línea)
+
+**Hecho:** la Fig. 5.4(b) del PDF usa título "(b) Convergencia", eje X
+"iteración" con rango `[0, 300]`, eje Y "compliance c(ρ)" en escala log, y los
+referentes como **texto en línea** ("uniforme c = 316.3" arriba, "SIMP c =
+75.6 (−76.1 %)" abajo) en vez de una caja de leyenda; la curva es una línea
+lisa sin marcadores. Nuestra corrida **converge en la iteración 92**
+(Δρ < 10⁻², Item 4), por lo que el historial tiene 92 puntos y el eje X llegaba
+solo hasta 92.
+
+**Después:** `fig_54b_historial` (headless y app) replica el estilo del PDF;
+si la corrida convergió, el tramo plano se extiende hasta `n_iter_max = 300`
+(c constante tras converger). El valor propio es `c* = 74.72` (−76.4 %) frente
+al `75.6` (−76.1 %) del PDF — diferencia ya documentada en el Item 10.
+
+**Pendiente de decisión:** el **panel (a)** del PDF es una **única** imagen de
+la densidad continua ρ* (con anotación "Diseño convergido p=3, fV=0.5, rmin=2.4
+/ β₀=1, β₁=3" y sin ejes); la nuestra muestra **dos** imágenes (ρ* + Ω binario).
+Ver Item 22.
+
+---
+
+## Item 22 — Fig. 5.4(a): se conservan los dos paneles (decisión del autor)
+
+**Decisión:** a diferencia del PDF —que muestra una sola imagen de ρ*—, la
+Fig. 5.4(a) **conserva los dos paneles** (densidad continua ρ* y sólido binario
+Ω). Motivo: son más informativos, pues muestran de dónde proviene el conteo
+$\beta_1$ (el binario es el que se cuenta topológicamente, no ρ*).
+
+**Ajuste:** se incorpora la línea de parámetros del PDF en el título
+("p = 3, fV = 0.5, rmin = 2.4 | β₀ = 1, β₁ = 3"), de modo que la figura
+transporta la misma información que el documento aunque con dos imágenes.
+
+**Consecuencia:** ninguna numérica; el conteo $\beta_1 = 3$ es idéntico.
+
+---
+
+## Item 23 — Fig. 5.5: estilo del PDF y etiqueta de la grisura
+
+**Estilo alineado al PDF** (`fig_55_penalizacion`, headless y app): título
+"Efecto de la penalización: compliance, binariedad y topología"; compliance en
+marrón (`#8c564b`) con círculos, grisura en azul (`#4b759a`) discontinua con
+cuadrados (colores muestreados del PDF); eje derecho "grisura (0 = diseño
+binario)"; anotaciones $\beta_1$ en verde (`#2e7d32`) bajo cada punto; leyenda
+en el centro-derecha.
+
+**Etiqueta de la grisura — evidencia.** El PDF rotula la grisura como
+$4\rho(1-\rho)$ (ρ cruda), pero sus valores corresponden a la densidad
+**filtrada** $\tilde\rho$:
+
+| $p$ | $4\rho(1-\rho)$ (cruda) | $4\tilde\rho(1-\tilde\rho)$ (código) | PDF |
+|---|---|---|---|
+| 1 | 0.551 | **0.616** | 0.590 |
+| 2 | 0.026 | **0.286** | 0.282 |
+| 3 | 0.021 | **0.284** | 0.274 |
+| 4 | 0.017 | **0.283** | 0.274 |
+
+Con ρ cruda los valores son absurdos (≈0.02; el diseño ya es casi binario); con
+$\tilde\rho$ reproducen al PDF. La etiqueta del PDF es una imprecisión
+notacional. **Decisión del autor:** la leyenda se rotula de forma exacta,
+$4\tilde\rho(1-\tilde\rho)$. El cálculo se mantiene con $\tilde\rho$ (coincide
+con el PDF).
+
+---
+
+## Item 24 — Fig. 5.6: estilo del PDF, eje X logarítmico y discrepancia de compliance
+
+**Estilo alineado al PDF:** título "Independencia de malla: β₁ constante, c estable";
+compliance marrón (`#8c564b`) con círculos, $\beta_1$ verde con cuadrados; eje derecho
+"$\beta_1(\Omega_{\text{sólido}})$"; anotaciones $r_{\min}$ junto a cada punto; sin
+leyenda.
+
+**Eje X logarítmico (verificado):** el PDF coloca los tres puntos a 0.000 / 0.631 /
+1.000 del ancho del eje (medido por la posición de los marcadores, en píxeles). El
+valor 0.631 = $\log(4)/\log(9)$ es exactamente la predicción de una escala
+**logarítmica** en $N_e$ (la lineal daría 0.375; la categórica, 0.500). El software
+pasa a eje X logarítmico con ticks $\{1{,}600;\ 6{,}400;\ 14{,}400\}$.
+
+**Discrepancia de datos (compliance) — no resuelta:**
+
+| $N_e$ | PDF | software |
+|---|---|---|
+| 1 600 | 15.51 | 15.28 |
+| 6 400 | 16.62 | 15.67 |
+| 14 400 | 17.43 | 15.94 |
+
+El PDF crece +12 % entre extremos; el software +4 %. $\beta_1 = 0$ coincide en ambos
+(Item 17). No se pudo determinar la causa (¿dominio, escalado de $r_{\min}$, tolerancia
+o número de iteraciones distintos?); se reporta el valor propio del software sin
+forzarlo.
+
+---
+
+## Item 25 — Fig. 5.3: retorno a la forma literal del PDF (`dB/diam` vs `2q`)
+
+> **SUPERADO por el Item 32.** El Cap. V corregido **elimina** esta figura: la
+> cota `dB/diam ≤ 2q` se retira y se reemplaza por la figura de dos paneles
+> (artefacto del truncamiento + cota probabilística). Lo que este item
+> documentaba —que la cota se rompe con la métrica exacta— queda explicado en el
+> panel (a) del Item 32: la cota solo se sostenía **truncando la filtración**.
+
+**Decisión del autor:** la Fig. 5.3 vuelve a la forma del PDF — eje Y
+$d_B/\mathrm{diam}(X)$, cota **diagonal** $2q$, rango Y `[0, ~0.45]` — en lugar de
+la forma del teorema ($dB/dH$ vs 2) que había fijado el Item 11. Esto **supera al
+Item 20** en lo relativo a la forma.
+
+**Consecuencia (con la métrica bottleneck exacta del Item 14):** en la figura las
+curvas de **círculo** y **dos_círculos** **cruzan** la cota $2q$ (el círculo la
+duplica en $q \approx 0.10$), a diferencia del PDF, donde todas quedan por debajo.
+El PDF dibujó su figura con la heurística greedy+L2 que subestimaba $d_B$. El
+software reporta el valor exacto y **no** lo atenúa para forzar el parecido.
+
+**Estilo:** se conserva el del PDF (título, leyenda 2 columnas con la cota al final,
+colores/marcadores `tab10` por nube, ticks cada 0.025).
+
+---
+
+## Item 26 — Fig. 5.3: selector de forma (documento ↔ teorema)
+
+> **SUPERADO por el Item 32.** El selector se retira: ya no hay dos formas que
+> contrastar porque el documento corregido abandona la cota `2q`. Queda una sola
+> figura, con el artefacto y la cota que lo sustituye.
+
+**Decisión del autor:** en lugar de fijar una sola forma, la Fig. 5.3 ofrece un
+**selector** entre las dos, para *exhibir la inconsistencia del documento* en vez de
+ocultarla:
+
+- **Forma del documento:** eje Y $d_B/\mathrm{diam}(X)$, cota diagonal $2q$.
+- **Forma del teorema:** eje Y $d_B/d_H$, cota horizontal $2$ (Cohen-Steiner,
+  Edelsbrunner & Harer).
+
+**Implementación:** `fig_53_cota(..., forma="documento"|"teorema")` con presets de
+estilo (eje Y, cota, rango) sobre el mismo esqueleto de datos. En la app, un `radio`
+"Forma de la cota" + un aviso fijo que explica el contraste. En el headless se generan
+**ambos** PNG para trazabilidad (`fig53a_forma_documento.png`,
+`fig53b_forma_teorema.png`); el antiguo `fig53_bottleneck_2q.png` se retira.
+
+**Mensaje pedagógico (caption fijo):** en la forma del documento, con la métrica
+bottleneck **exacta**, círculo y dos_círculos **cruzan** la cota — luego
+$d_B/\mathrm{diam}(X) \leq 2q$ **no** es consecuencia del Teorema de Estabilidad. En
+la forma del teorema, todas las curvas quedan por debajo. El selector convierte la
+inconsistencia del PDF en un hallazgo documentado y verificable.
+
+---
+
+## Item 27 — Fig. 5.2(a): por qué `dos_circulos` colapsa antes que en el documento
+
+> **SUPERADO por los Items 30 y 31.** La causa era la geometría del catálogo
+> (`dos_circulos` con separación 5), no el fenómeno. Con el catálogo corregido y el
+> ruido normalizado, la Fig. 5.2 reproduce al documento: `dos_circulos` da **q\* = 0**
+> en las tres dimensiones, exactamente como reporta el Cap. V corregido. Se conserva
+> el diagnóstico por trazabilidad, pero ya no describe el software.
+
+**Investigación (con evidencia).** El desacuerdo no es de fórmula sino de **geometría
+de la nube**. A $q = 0.05$ el software lee `dos_circulos` = $(\beta_0, \beta_1) = (2, 0)$:
+el $\beta_0$ es correcto, pero el **agujero no se detecta**. Diagnóstico:
+
+| `dos_circulos` | $q = 0$ | $q = 0.05$ |
+|---|---|---|
+| barras $H_1$ | 2 | **84** |
+| mayor persistencia $H_1$ | 1.591 | **0.410** |
+| umbral $\tau\cdot\mathrm{diam}(X)$ | 1.050 | 1.050 |
+| $\beta_1$ leído | 2 ✓ | **0 ✗** |
+
+El ruido ($\sigma = 0.05\cdot\mathrm{diam} = 0.35$) es grande frente al radio de los
+círculos (1.0): la nube se fragmenta, el $H_1$ se reparte en 84 barritas y la
+persistencia del agujero cae por debajo del umbral $\tau\cdot\mathrm{diam}(X)$.
+Nuestro `dos_circulos` usa separación 5.0 ($\mathrm{diam} = 7$), de modo que
+$\tau\cdot\mathrm{diam} = 1.05$ es grande frente a agujeros de radio 1. El documento
+debió usar una separación menor ($\sigma$ menor ⇒ los agujeros sobreviven).
+
+**Consecuencia:** **no** se aplica el patrón de Fig. 5.3 (dos formas). Allí había dos
+formulaciones matemáticas del mismo objeto (una cota vs el teorema); aquí el resultado
+**depende de un parámetro de configuración**, sin una "forma correcta" y otra "del
+documento" que contrastar.
+
+**Acción (A + B):**
+- **(A)** Se documenta como discrepancia de configuración (no de fórmula).
+- **(B)** La app incorpora un **diagnóstico** junto a la Fig. 5.2(a): "Persistencia
+  $H_1$ dominante $/\mathrm{diam}(X)$ frente al umbral $\tau$", por nube con agujeros.
+  Muestra de un vistazo el orden de colapso: `dos_circulos` (0.227→0.059) y `toro`
+  (0.226→0.103) cruzan $\tau = 0.15$ ya en $q = 0.05$; `anillo` en $q = 0.10$;
+  `círculo` aguanta hasta $q = 0.15$. Convierte el dato raro en algo explicado.
+
+---
+
+## Item 28 — App: leyendas a la derecha y sin hueco descripción↔figura
+
+**Decisión del autor (solo la app Streamlit, no los PNG del headless):**
+
+1. **Leyendas a la derecha, fuera del área de trazado**, para que no tapen el
+   gráfico. Se centraliza en `theme.apply_plotly_theme(fig, leyenda=…)`:
+   - `"derecha"` (default, un solo eje Y): leyenda a `x=1.02`, margen derecho 175.
+   - `"secundaria"` (eje Y a ambos lados, Figs. 5.5/5.7): a `x=1.16`, margen 260,
+     para no chocar con el eje secundario.
+   - `None` (heatmaps y gráficos sin leyenda): sin cambios.
+   Verificado renderizando a PNG (kaleido): sin solapamiento en ambos casos.
+
+2. **Sin hueco entre la descripción y su figura.** Se agrega CSS en
+   `responsive_style()` que compacta el aire vertical (`gap` del `stVerticalBlock`,
+   márgenes de la descripción previa y de la figura) para que cada figura quede
+   **pegada a su rótulo de arriba** y no dé la impresión de pertenecer al texto de
+   abajo.
+
+**Nota:** los PNG del headless (entregable E3) **mantienen** la posición de leyenda
+del PDF (fidelidad al documento); el ajuste aplica solo a la app.
+
+---
+
+## Item 29 — Ruido gaussiano: normalizar por la dimensión (`σ = q·diam/√d`)
+
+**Antes**
+- Tabla 1.1 (línea del indicador `q`): «`σ_n = q·diam(X)`, con q ∈ {0,.05,.10,.15,.20}».
+- §2.2.1: misma fórmula en la definición operacional del ruido.
+- Algoritmo maestro, paso 7: `Y ← X + N(0, (q·diam(X))²·I)`.
+- Glosario: «q — Nivel de ruido relativo, `σ_n = q·diam(X)`».
+
+**Después**
+- Tabla 1.1 y §2.2.1: **`σ_n = q·diam(X)/√d`**, con `d` la dimensión ambiente de la nube.
+- Algoritmo maestro, paso 7: `Y ← X + N(0, (q·diam(X)/√d)²·I)`.
+- Glosario: «q — Nivel de ruido relativo, `σ_n = q·diam(X)/√d`».
+
+**Razón (con evidencia):** el propio PDF de las figuras corregidas del Cap. V lo declara
+como error del original: *«La figura original no normalizaba el ruido por la dimensión»*.
+Sin el factor `1/√d`, el desplazamiento cuadrático medio de un punto crece como `√d·q·diam`:
+en `d = 100` la nube se destruye aunque `q` sea chico, y el experimento mide la dimensión,
+no la robustez. Con la normalización, la perturbación media por coordenada es `σ` y el
+mismo `q` significa lo mismo en ℝ² y en ℝ¹⁰⁰.
+
+**Efecto en el software (ya aplicado):** `processing/sampling.add_gaussian_noise` usa
+`σ = q·diam(X)/√d`. Arrastra las Fig. 5.2 y 5.3 (los `q*` y la razón `dB/(2dH)` cambian:
+con ruido más suave, las nubes aguantan más). **La cota `dB/diam ≤ 2q` queda retirada**
+del documento (ya figuraba en los Items 11 y 25): el PDF corregido la reemplaza por la
+cota probabilística `2σ(√d + √(2·ln(n/δ)))` con `δ = 0,05` (Fig. 5.3).
+
+**Estado:** los PNG `fig52*` y `fig53*` de `data/figuras/` siguen generados con la fórmula
+vieja y `τ = 0.15`; se regeneran en la pasada de las Figs. 5.2/5.3.
+
+---
+
+## Item 30 — Catálogo de nubes corregido (retracta la premisa del Item 13)
+
+**Antes:** el catálogo del repo usaba geometrías distintas a las del documento —
+`dos_circulos` con radio 1 y separación 5, `toro` con r = 1, `anillo` con
+r ∈ [0,8;2], `gaussiana` sin truncar — y la calibración de τ se hacía sobre el
+**mismo** catálogo que luego se medía.
+
+**Después** (`processing/sampling.CATALOGO_CORREGIDO`, `ORDEN_CALIBRACION`):
+- `dos_circulos`: radio 0,6, centros en ±1,5 · `toro`: r = 0,8 ·
+  `anillo`: r ∈ [0,75;1] · `gaussiana`: truncada en `2σ` y escalada × 0,5.
+- Semillas: `default_rng(900 + i)` para el catálogo independiente `C₀` de calibración
+  y `default_rng(42 + i)` para el catálogo `C` de medición (antes, la misma semilla
+  para ambos).
+
+**Razón (con evidencia):** con la gaussiana sin truncar, sus puntos atípicos aislados
+producen `β₀ = 2` o `3` en todo `τ ≤ 0,20` y la compuerta F3 aborta el proceso — esa es
+la causa real del «no existe ventana 7/7» del Item 13, **no** la definición de βk.
+Reimplementando el pipeline completo sobre el catálogo corregido, la Fig. 5.1 se reproduce
+idéntica al PDF: **τ\* = 0,175, ventana única con 7/7**, curva
+`{0.05:2, 0.075:3, 0.1:5, 0.125:6, 0.15:6, 0.175:7, 0.2:6, 0.225:5, …}` y márgenes
+`0.124, 0.127, 0.044, −0.002, 0.096, 0.028, 0.081`.
+
+**Consecuencias:**
+- **Item 13 retractado** (ver su cabecera): con βk = (β₀, β₁) la ventana **existe**.
+  La «Resolución adoptada» de calibrar sobre β₁ queda anulada; la calibración vuelve a βk.
+- `TAU_CALIBRADO = 0.175` en `simulation/he_protocols` (antes 0,15); arrastra las
+  Figs. 5.2/5.3 y el criterio de `q*`.
+- **Pendiente:** recalcular `q*` y la Tabla 5.5 con τ = 0,175 (pasada 5.2/5.3).
+
+**Verificación:** `analysis/calibracion.py` (17 tests) + `simulation/test_he_protocols.py`
+(3 tests que garantizan que `TAU_CALIBRADO` no se desincronice de la calibración).
+253 tests en verde; la página H.E.1 renderiza la figura 3 paneles y reporta
+«τ ∈ [0.175, 0.175] · τ* = 0.175 · τ adoptado = 0.175 cae dentro» (verificado con
+`streamlit.testing.v1.AppTest`).
+
+---
+
+## Item 31 — Fig. 5.2 replicada bit a bit (5 paneles, 1 680 réplicas)
+
+**Qué se hizo:** `analysis/estabilidad_dimensional.py` reimplementa el
+experimento del Cap. V corregido (`caso1_tda.py`) y `visualization.figuras.
+fig_52_estabilidad` dibuja los cinco paneles. La app (pestaña H.E.1) lee la
+corrida cacheada en `data/figuras/fig52_replicas.csv` y muestra la misma figura
+matplotlib, con tema claro/oscuro.
+
+**Protocolo (idéntico al documento):** 7 nubes × d ∈ {nativa, 10, 100} ×
+q ∈ {0,05; 0,10; 0,15; 0,20} × R = 20 réplicas = **1 680**; n = 400;
+τ = 0,175 (el de la Fig. 5.1); σ = q·diam(X)/√d; embebido por relleno de ceros;
+lectura de βk con `diam(Y)`; semillas `42 + i` (nube) y
+`42 + 1000r + 10⁵q + 10⁷d + 100i` (ruido).
+
+**Verificación (contra `tda_replicas.csv` del Cap. V):** 1 200 filas comparables
+(las 480 restantes difieren solo en la tilde de «círculo»/«dos círculos») y
+**`max |dB_origen − dB_nuestro| = 0,0`** — coincidencia exacta, no aproximada.
+
+**Resultados (coinciden con el texto del documento):**
+
+| Magnitud | Documento | Software |
+|---|---|---|
+| Razón media `dB/(2dH)`: nativa / d=10 / d=100 | 0,31 / 0,25 / 0,36 | **0,305 / 0,252 / 0,358** |
+| Máximo `dB/dH` en dimensión nativa | 0,89 | **0,892** |
+| Violaciones de `dB ≤ 2dH` en 1 680 réplicas | 0 | **0** |
+| `q*` nativa: disco / círculo / gaussiana / anillo / esfera / dos círculos / toro | 0,20 / 0,15 / 0,15 / 0,10 / 0,10 / 0 / 0 | **idéntico** |
+| `q*` en d=10 y d=100: círculo, anillo, disco / esfera, gaussiana | 0,10 / 0,05 | **idéntico** |
+
+**Artefactos:** `data/figuras/fig52_estabilidad.png`, `fig52_replicas.csv`
+(1 680 filas), `fig52_q0.csv` (lectura sin ruido, con márgenes). Los antiguos
+`fig52a_tasa_acierto.png` y `fig52b_cota_estabilidad.png` **se retiran**: eran la
+versión de dos paneles del PDF original.
+
+**Nota de lectura:** los paneles (b) y (c) no contradicen a (a). El diagrama se
+mueve poco (b), pero un desplazamiento pequeño basta para que una barra cruce el
+umbral fijo τ (a). El orden de los `q*` reproduce el de los márgenes de la
+Fig. 5.1(c): las nubes con margen grande resisten más.
+
+---
+
+## Item 32 — Fig. 5.3 corregida replicada (truncamiento + cota probabilística)
+
+**Qué se hizo:** `analysis/truncamiento.py` reproduce el experimento del panel (a)
+y `visualization.figuras.fig_53_cota_corregida` dibuja los dos paneles. La app
+lee la corrida cacheada (`data/figuras/fig53_truncamiento.csv`) y el panel (b) de
+las 1 680 réplicas de la Fig. 5.2.
+
+**Panel (a) — protocolo (idéntico al documento):** círculo, n = 400, **definición
+de ruido anterior** (`σ = q·diam X`, sin normalizar), q ∈ {0; 0,05; 0,10; 0,15;
+0,20} × R = 20 × dos filtraciones (truncada en ε ≤ 0,6 y completa) = 200 filas.
+La truncada descarta la barra infinita, que es justamente el ciclo principal del
+círculo (muere en √3 ≈ 1,73).
+
+**Resultados (coinciden exactamente con el texto del documento):**
+
+| `dB/diam X` | q = 0,05 | 0,10 | 0,15 | 0,20 |
+|---|---|---|---|---|
+| Truncado en ε ≤ 0,6 | **0,042** | **0,079** | **0,106** | **0,117** |
+| Completo (sin truncar) | **0,191** | **0,385** | **0,407** | **0,407** |
+
+- Con truncamiento queda **bajo `2q` en las 80 réplicas** (por eso la figura
+  original lo mostraba como validación de la cota).
+- Sin truncar **supera `2q` en las 80 réplicas** y se satura en 0,407 ≈ la mitad
+  de la persistencia del ciclo: el costo de emparejarlo con la diagonal cuando el
+  ruido lo destruye.
+
+**Panel (b):** sobre las 1 680 réplicas de la Fig. 5.2, `dB` dividida por
+`2σ(√d + √(2·ln(n/δ)))` con δ = 0,05: **máximo 0,442, media 0,213, 0
+violaciones** (documento: 0,44 y 0,21; tolerancia teórica del 5 %).
+
+**Consecuencia:** la cota `dB/diam ≤ 2q` **no tenía respaldo teórico**; la que sí
+lo tiene (Proposición 4.3) es la probabilística, y se cumple con holgura. Los
+Items 25 y 26 quedan superados; los PNG `fig53a_forma_documento.png` y
+`fig53b_forma_teorema.png` **se retiran**.
+
+**Artefactos:** `data/figuras/fig53_cota_corregida.png`,
+`data/figuras/fig53_truncamiento.csv`.
+
+---
+
+## Item 33 — Corrección crítica: distancia bottleneck exacta (minimax)
+
+**Qué se hizo:** se reemplazó la implementación de `bottleneck_distance` en `src/tda/core/topology.py`. Usaba `scipy.optimize.linear_sum_assignment` (que minimiza la **suma** de costos); la distancia bottleneck exige minimizar el **máximo** costo (**minimax**).
+
+**Impacto y evidencia:** medido en 150 diagramas aleatorios, el código viejo presentaba **52 errores de sobreestimación** (hasta +0,27), ocultos porque los tests anteriores solo verificaban dimensiones de salida (`shape`). Se sustituyó por búsqueda binaria sobre costos candidatos evaluada con el algoritmo de flujo máximo (`scipy.sparse.csgraph.maximum_flow`), exacto y ~3000× más rápido en grafos densos de comodines. Validado contra enumeración exacta (*brute-force*, 150/150) y GUDHI (`e=0.0`).
+
+---
+
+## Item 34 — Unificación de las páginas H.E.1 y H.E.2 en la app Streamlit
+
+**Qué se hizo:**
+- **Página H.E.1:** Se reestructuró con el mismo diseño formal que H.E.2 (secciones numeradas 1 a 5, botón maestro unificado sin recargas automáticas de disco, presentación secuencial de H.E.1a, H.E.1b con barras de exactitud, H.E.1c con mapa de calor de q*, tabla de veredicto 5.5, exportador ZIP e interactivo pedagógico al pie).
+- **Página H.E.2:** Se actualizaron las Figuras 5.4(b), 5.5 (dos paneles apilados), 5.6 (galería de mallas 2D + compliance) y 5.7 (tres paneles: Betti, volumen y diagrama H₁) para invocar directamente a las funciones de renderizado del backend (`visualization/figuras.py`) con estricta paridad respecto al PDF corregido.
+
+---
+
+## Item 35 — Hipótesis General (H.G.) integrada y con protocolo funcional
+
+**Qué se hizo:** `3_H.G._Hipotesis_General.py` se actualizó para consumir las claves unificadas (`he1_fig52`, `he1_mcnemar`, `he1_trunc`) en lugar de las del protocolo obsoleto. El botón de ejecución automática corre todo el flujo cruzado de TDA y SIMP bajo un contenedor de estado (`st.status`), arrojando el semáforo y la Tabla 5.9 completos.
+
+---
+
+## Item 36 — Caso 2 alineado con el Cap. V corregido (H.E.2a/H.E.2b)
+
+**Qué se hizo:** se eliminó la validación con la formulación anterior (≥40 % contra el uniforme penalizado) y se implementó el protocolo del PDF:
+
+- **H.E.2a:** placa uniforme `p=1`, diseño binarizado al umbral `u_V` que conserva el volumen, compliance del binario con material 0/1 y cota inferior convexa `M*` (`p=1`, sin filtro). Se agrega la eficiencia relativa `η = (c_unif − c_bin)/(c_unif − c_ast)` y el criterio **≥15 %**.
+- **H.E.2b:** mallas `60×30 / 120×60 / 180×90` con `r_min` físico constante (`2,4 / 4,8 / 7,2`), seis radios `r_min` (incluido `3,5`) y viga MBB `120×40` como falsación.
+- **Topología:** Método A con **8-conectividad** (cuadrados cerrados), doble cómputo bloqueante (si Euler ≠ GUDHI se aborta) y diagrama H₁ de la **filtración por subniveles** de `f=1−ρ̃`, no del grid binario.
+- **Umbral:** `u_V` se calcula para conservar `f_V`; el barrido de la Fig. 5.7 usa `u ∈ [0,025; 0,975]`.
+
+**Verificación (corrida completa, `experiment_simp`):**
+
+- Base 60×30: `c_unif=79,09`; `c_bin=63,08`; `c_ast=55,15`; reducción `20,24 %`; `η=0,669`; `u_V=0,556`; `β₁=3`; persistencia mínima de los tres agujeros `0,914` (PDF: `20,2 %`, `0,666`, `0,554`, `0,905`).
+- Mallas: `β₁=3` en 60×30, 120×60 y 180×90; `c_bin=63,08 / 62,75 / 62,80` (PDF: `63,12 / 62,68 / 62,77`).
+- `r_min`: `β₁=3` en los seis radios del voladizo.
+- MBB: `β₁=9, 8, 8, 7, 2, 2` (PDF: `9, 8, 8, 6, 2, 2`); la meseta no es constante, que es el veredicto del Cap. V.
+- `p`: `β₁=3` para `p=2,3,4`; `p=1` da `β₁=0`.
+
+**Archivos:** `simulation/he_protocols.py`, `simulation/experiment_simp.py`, `optimization/metric_simp.py`, `core/betti2d.py`, `app/pages/2_H.E.2_*`, `app/pages/3_H.G._*`, `visualization/figuras.py`.
+
+---
+
+## Item 37 — H.E.1b y H.E.1c: protocolo completo
+
+**H.E.1b.** Se reemplazó el clasificador de juguete por el protocolo del Cap. III:
+- 200 muestras por clase (400 pares), catálogo corregido disco/anillo;
+- transformación afín aleatoria con RNG reproducible;
+- descriptor TDA = vector de persistencias H₁ normalizadas + β₀/β₁;
+- descriptor euclidiano = espectro PCA + inercia de k-medias, **sin dispersión radial** (la fuga que el propio Cap. V señala);
+- `RandomForest` con validación cruzada estratificada de 5 particiones, mismas particiones para ambos;
+- McNemar sobre predicciones emparejadas.
+
+**Decisión: el PDF prevalece.** El valor oficial de H.E.1b es el piloto documentado: **0,950 vs 0,925, McNemar no significativo → no concluyente**. La app lo carga desde `resultado_piloto_pdf()` y H.G. no se declara corroborada por esta vía.
+
+**Protocolo reproducible (exploratorio):** con el clasificador y la CV corregidos, el experimento actual da `1,000 ± 0,000` vs `0,750 ± 0,061` (`p ≈ 1,5e-23`). Se conserva en `comparar_tda_vs_euclidiano` y en la casilla «protocolo reproducible» de H.E.1, pero **no reemplaza** el resultado del PDF. Esta diferencia queda documentada como limitación de reproducibilidad del piloto, no como cambio de veredicto.
+
+**H.E.1c.** `estabilidad_dimensional.rango_fiabilidad` calcula ahora:
+- `q_estrella` = mayor q con acierto ≥ 0,95;
+- `q_fallo` = primer q con acierto < 0,50;
+- `banda = q_fallo − q_estrella` y estado (`se sostiene`, `acotada sin fallo <50%`, `no se sostiene`).
+
+Sobre `fig52_replicas.csv`, con el denominador del PDF (18 = 7 nubes × 3 dimensiones menos el toro): **12** combinaciones con banda ≤ 0,10, **3** acotadas sin llegar a <50 % (disco, esfera y gaussiana en dimensión nativa) y **3** sin lectura fiable (dos círculos). El toro se reporta aparte (3 combinaciones, q*=0). El veredicto correcto es **H.E.1c acotada**, no «se sostiene» a secas.
+
+---
+
+## Item 38 — Réplica y justificación de `8.Figuras/`
+
+**Qué se hizo:** `scripts/replicar_figuras.py` regenera las ocho figuras del Cap. V en `data/figuras/replica/` y escribe `valores.csv`. El detalle figura→función→dato→valor está en `docs/Replica_Figuras.md`.
+
+- Se implementó `fig_58_rmin_falsacion`, que no existía.
+- El barrido H.E.2 guarda `beta1_u05`: la Fig. 5.8 usa `u = 0,5`, no `u_V`. Con esa convención la MBB reproduce `9, 8, 8, 6, 2, 2`.
+- `fig_54a_diseno` volvió al panel único con contorno `u_V` del PDF; `fig_54b_historial` rotula iteraciones y convergencia.
+- `fig_56_malla` ya no hardcodea `β₁ = 3`; usa el dato.
+
+**Estado:** 5.1, 5.2, 5.3 y 5.8 coinciden; 5.4–5.7 coinciden en los valores que sostienen el veredicto. La Fig. 5.4(b) del PDF dice 139 iteraciones y la réplica converge en 89, sin cambiar `c_unif/c_bin/c_ast`, `u_V` ni `β₁`.
+
+---
+
+## Item 39 — Notación, fórmulas y leyendas de figuras
+
+**Notación/fórmulas:** `docs/Notacion_Formulas.md` mapea los símbolos del Cap. II a variables del código y audita cada ecuación:
+
+- `(2.7)` y `(2.9)` se corrigieron en `core/fem.py`: ahora `E_e = E_min + ρ_e^p(E−E_min)` y `∂M/∂ρ_e = −p ρ_e^{p−1}(E−E_min) u_e^T K₀ u_e`, en lugar de `max(ρ,ρ_min)^p`.
+- `(2.10)`, `η`, `u_V`, `grisura`, cota probabilística y bottleneck están implementados y coinciden.
+- Queda documentada la desviación `diam(X)` vs `diam(Y)` en H.E.1c: se mantiene `diam(Y)` para no alterar los `q*` del PDF.
+- H.E.1b sigue el piloto del PDF; el protocolo reproducible queda como evidencia exploratoria.
+
+**Leyendas:** `src/tda/visualization/leyendas.py` centraliza las leyendas breves de las Figs. 5.1–5.8. La app las muestra con `st.caption` y `scripts/replicar_figuras.py` las exporta a `data/figuras/replica/leyendas.csv`.
+
+---
+
+## Item 40 — H.G. reformulada según §1.5 y veredicto por cláusulas
+
+**Qué se corrigió:** la página H.G. usaba un texto distinto al §1.5 y calculaba `all(H.E.1a, H.E.1b, H.E.1c, H.E.2a, H.E.2b)`, incluyendo H.E.2a (eficiencia) y exigiendo H.E.1b como condición universal.
+
+**Ahora:**
+
+- Se usa el texto literal de la hipótesis general del §1.5.
+- Se separan las dos cláusulas:
+  - **A. Estabilidad/verificabilidad** de `β_k` bajo `q ≤ q*`: H.E.1a + H.E.1c + H.E.2b. H.E.1c acotada sostiene la cláusula **con alcance**, no la refuta.
+  - **B. Ventaja comparativa**: H.E.1b. El piloto del PDF es **no concluyente**.
+- H.E.2a se reporta como **informativa y fuera de H.G.**
+- El veredicto es tri-estado: `sostenida`, `parcial/condicionada`, `no sostenida`.
+- Se eliminó la conjunción `all(...)`.
+
+**Veredicto con los datos actuales:** H.G. **parcial/condicionada** (A sostenida con alcance; B no concluyente). Se generó `data/veredicto_HG.csv`, `data/veredicto_HG.png` y `docs/Veredicto_HG.md` con la lectura por cláusulas: H.E.1a `1.000`; H.E.1c `12` con banda, `3` acotadas, `3` sin `q*` sobre 18; toro aparte (3); H.E.2b voladizo `β₁=3`; H.E.1b `0,950 vs 0,925`, `p=0,3173`; H.E.2a `20,24 %`, `η=0,669` (fuera de H.G.).
+
+---
+
+## Item 41 — Vocabulario de estados: Medido / Concluyente / No concluyente
+
+**Qué se corrigió:** el software usaba `✅ CUMPLE / ❌ NO CUMPLE` y `✓ / ×`, reduciendo todo a binario. El Cap. V distingue:
+
+- **Estado de la evidencia:** `Medido` / `Proyectado`.
+- **Veredicto:** `Se sostiene`, `Acotada`, `No concluyente`, `No se sostiene`.
+- **Concluyente:** solo cuando el contraste decide con el criterio prefijado.
+
+**Implementación:** `src/tda/analysis/estados.py` centraliza el vocabulario. Las páginas H.E.1, H.E.2 y H.G. muestran ahora etiquetas compuestas:
+
+- `Medido · Concluyente · Se sostiene`.
+- `Medido · No concluyente`.
+- `Medido · Acotada`.
+
+**H.G.:** la tabla 5.9 usa `Estado` + `Veredicto` textuales; las cláusulas A/B se leen por separado. H.E.2a se mantiene informativa y fuera de H.G.
+
+**Artefacto:** `data/veredicto_HG.csv/png` y `docs/Veredicto_HG.md` usan la misma taxonomía.
+
+---
+
+## Item 42 — Caché de H.G. y de `Dgm(X)` en H.E.1
+
+**Qué se hizo:**
+
+- `H.G.` tiene una casilla **«Usar resultados en caché (CSV)»** activa por defecto. Si existen `fig52_replicas.csv`, `validacion_HE2_corregida.csv` y `barrido_HE2b.csv`, el veredicto se construye en segundos; si no, corre el protocolo completo.
+- Se eliminó de H.G. la calibración y el truncamiento, que no alimentan el veredicto.
+- `estabilidad_dimensional._base` usa `lru_cache` por `(nube, d, n_points)`: `X`, `diam(X)`, `Dgm(X)` y los diagramas finitos se calculan una vez por worker.
+
+**Medición:** H.E.1 con 84 réplicas paralelas pasó de **31,7 s a 19,8 s** (≈38 % menos). La extrapolación a 1 680 réplicas baja de ~10,5 min a ~6,6 min. H.G. con caché pasa de ~25 min a segundos.
+
+---
+
+## Item 43 — Fix de estado compartido H.G. → H.E.2
+
+**Bug:** H.G. marcaba `simp_optimized = True` sin guardar `simp_rho_final` ni el resto de claves de diseño. Al abrir H.E.2, la página asumía que existían y lanzaba `AttributeError: st.session_state has no attribute "simp_rho_final"`.
+
+**Corrección:**
+
+- H.G. ahora usa `hg_simp_ready`, una bandera propia, y **no** marca `simp_optimized`.
+- H.E.2 solo renderiza si `simp_optimized` está activo **y** existen todas las claves de diseño (`rho_final`, `rho_tilde_final`, malla, historial, etc.).
+- La landing consulta `simp_optimized or hg_simp_ready` para el semáforo de H.E.2.
+
+**Verificación:** `AppTest` de H.E.2 con `simp_optimized=True` pero sin `simp_rho_final` ya no lanza excepción; H.G. con caché sigue funcionando.
+
+---
+
+## Item 44 — H.G. reconoce H.E.2 y estados tri-estado en el semáforo
+
+**Bug observado:** después de correr H.E.2, H.G. mostraba H.E.2 en gris y H.G. «sin datos», porque H.G. solo miraba `hg_simp_ready` (bandera propia) y no `simp_optimized` (bandera de H.E.2).
+
+**Corrección:**
+
+- `he2_run = hg_simp_ready or simp_optimized`.
+- Auto-carga de H.E.1 desde `fig52_replicas.csv` al abrir H.G., para que el semáforo no quede a medias si H.E.1 ya está en caché.
+- Semáforo con chips tri-estado:
+  - H.E.1b `NC` (ámbar), no `×`.
+  - H.E.1c `≈` cuando es acotada.
+  - H.G. `parcial ≈` o `incompleta …` según falten cláusulas.
+- Si H.E.2 está completo pero H.E.1 no, H.G. muestra `incompleta`, no «sin datos».
+
+**Verificación:** `AppTest` con `simp_optimized=True`, `simp_reduccion=20.24` y barrido completo muestra H.E.2a ✓, H.E.2b ✓ y H.G. parcial; sin excepciones.
+
+---
+
+## Resumen de trazabilidad (software → tesis)
+
+| Hipótesis | Función | Dato | Figura |
+|---|---|---|---|
+| H.E.1a | `estabilidad_dimensional.protocolo_fig52` | `data/figuras/fig52_replicas.csv` | 5.2(b–c), 5.3(b) |
+| Artefacto del truncamiento | `truncamiento.analisis_truncamiento` | `data/figuras/fig53_truncamiento.csv` | 5.3(a) |
+| H.E.1b | `stability.resultado_piloto_pdf` (valor oficial del PDF) | `data/he1b_piloto_pdf.csv` | Tabla 5.5 |
+| H.E.1c | `estabilidad_dimensional.rango_fiabilidad` (q*, q_fallo, banda) | `data/figuras/fig52_replicas.csv` | 5.2(a1–a3) |
+| Calibración τ | `analysis.calibracion.calibrar_c0` / `tau_estrella` | `data/figuras/fig51_calibracion_C0.csv` | 5.1 |
+| H.E.2a | `he_protocols.metricas_he2a` + `MetricaTDA_SIMP.compliance_densidad` | `data/validacion_HE2_corregida.csv` | 5.4(a–b), Tabla 5.6 |
+| H.E.2b | `he_protocols.barrido_he2` + `fig_55`–`57` | `data/barrido_HE2b.csv` | 5.5(a–b), 5.6(a–b), 5.7(a–c) |
+| Doble cómputo β | `betti2d.betti_doble_computo` | — | 5.4(a) |
+| Reconstrucción de figuras | `visualization.figuras` (E3) | `data/figuras/*.png`, `*.csv` | 5.1–5.7 |

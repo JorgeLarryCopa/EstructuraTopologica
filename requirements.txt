@@ -1,0 +1,20 @@
+# ============================================
+# Dependencias runtime — Estructura Topológica
+# Versiones flexibles (>=) para compatibilidad
+# multiplataforma (Linux, macOS, Windows)
+#
+# NOTA: ripser se instala por separado con --no-deps
+# en install_package.sh y install_package.bat
+# para evitar su dependencia problemática persim
+# (no tiene wheels para Windows).
+# ============================================
+
+numpy>=2.1,<3
+pandas>=2.2,<4
+matplotlib>=3.9,<4
+scipy>=1.14,<2
+scikit-learn>=1.5,<2
+streamlit>=1.38,<3
+plotly>=5.24,<7
+gudhi>=3.13
+kaleido>=1.0

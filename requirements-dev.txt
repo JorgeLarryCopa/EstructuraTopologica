@@ -1,0 +1,22 @@
+# ============================================
+# Dependencias de desarrollo — opcionales
+# Instalar con: pip install -r requirements-dev.txt
+# ============================================
+
+# Jupyter / IPython — notebooks y debugging interactivo
+ipykernel>=7.0,<8
+ipython>=9.0,<10
+jupyter_client>=8.0,<9
+
+# Build tools — compilación de extensiones C/C++
+Cython>=3.0,<4
+
+# Testing
+pytest>=8.0,<9
+pytest-cov>=6.0,<7
+
+# Documentación — generación de .docx en docs/
+python-docx>=1.1,<2
+
+# Linting & formating
+ruff>=0.11,<1

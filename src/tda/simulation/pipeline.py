@@ -1,0 +1,343 @@
+"""Pipeline principal de experimentos TDA con preprocesamiento de diagramas.
+
+Este módulo orquesta la generación de nubes de puntos sintéticas, cálculo
+de diagramas de persistencia, preprocesamiento, y exportación de resultados
+para validar hipótesis topológicas sobre robustez ante ruido.
+"""
+
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+# Check for required libraries
+try:
+    import ripser
+except ImportError as e:
+    raise ImportError("Falta la biblioteca requerida: ripser. Por favor instálela para ejecutar el pipeline TDA.") from e
+
+# persim is optional — we use numpy-based distances in tda.core.topology
+try:
+    import persim
+except ImportError:
+    persim = None
+
+# Import metrics and preprocessing modules
+from tda.core.topology import betti_numbers
+from tda.processing.preprocessing import filter_persistence_diagram, normalize_diagram
+from tda.processing.sampling import generate_cloud, add_gaussian_noise, compute_diameter
+from tda.analysis.stability import betti_persistente
+
+# Import Euclidean descriptors computation
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+
+# Create data directory if needed (handles PyInstaller bundle)
+import sys as _sys
+if getattr(_sys, "frozen", False):
+    PROJECT_ROOT = Path(_sys.executable).parent
+else:
+    current_file = Path(__file__).resolve()
+    PROJECT_ROOT = current_file.parent.parent.parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ============== Helper functions ==============
+
+def compute_persistence_diagram(points: np.ndarray, maxdim: int = 1) -> list:
+    """Calcula el diagrama de persistencia usando ripser, filtrando intervalos inválidos.
+
+    Parámetros:
+        points (numpy.ndarray): Coordenadas de la nube de puntos.
+        maxdim (int): Dimensión máxima de homología a calcular. Por defecto 1.
+
+    Retorna:
+        list: Lista filtrada de diagramas de persistencia para cada dimensión.
+    """
+    result = ripser.ripser(points, maxdim=maxdim)
+    dgms = result['dgms']
+
+    filtered_dgms = []
+    for dim_dgm in dgms:
+        valid_intervals = []
+        for birth, death in dim_dgm:
+            if np.isfinite(birth) and np.isfinite(death):
+                adjusted_birth = max(birth, 1e-8)
+                adjusted_death = max(death, adjusted_birth + 1e-8)
+                valid_intervals.append([adjusted_birth, adjusted_death])
+        filtered_dgms.append(valid_intervals)
+
+    return filtered_dgms
+
+
+def compute_wasserstein_distance(dgm1: np.ndarray, dgm2: np.ndarray) -> float:
+    """Calcula la distancia de Wasserstein entre dos diagramas.
+
+    Parámetros:
+        dgm1 (numpy.ndarray): Primer diagrama de persistencia.
+        dgm2 (numpy.ndarray): Segundo diagrama de persistencia.
+
+    Retorna:
+        float: Distancia de Wasserstein.
+    """
+    from tda.core.topology import wasserstein_distance
+    return wasserstein_distance(dgm1, dgm2)
+
+
+def _safe_stack(normalized: list) -> np.ndarray:
+    """Stack diagram dimensions skipping empty ones.
+
+    normalize_diagram returns a list per dimension (e.g. [[[b1,d1],[b2,d2]], []]
+    for H0 with points and H1 empty). np.vstack fails on mixed shapes because
+    [] becomes shape (0,) incompatible with (n, 2). This helper filters out
+    empty dimensions before stacking.
+
+    Parámetros:
+        normalized (list): Lista de dimensiones, cada una con puntos (n, 2) o vacía.
+
+    Retorna:
+        np.ndarray: Array concatenado de forma (N, 2) o np.empty((0, 2)) si todas vacías.
+    """
+    non_empty = [np.array(dim) for dim in normalized if dim]
+    if non_empty:
+        return np.vstack(non_empty)
+    return np.empty((0, 2))
+
+
+def compute_bottleneck_distance(dgm1: np.ndarray, dgm2: np.ndarray) -> float:
+    """Calcula la distancia de Bottleneck entre dos diagramas.
+
+    Parámetros:
+        dgm1 (numpy.ndarray): Primer diagrama de persistencia.
+        dgm2 (numpy.ndarray): Segundo diagrama de persistencia.
+
+    Retorna:
+        float: Distancia de Bottleneck.
+    """
+    from tda.core.topology import bottleneck_distance
+    return bottleneck_distance(dgm1, dgm2)
+
+
+def compare_tda_vs_euclidean(clean_pts: np.ndarray, noisy_pts: np.ndarray, 
+                              noise: float, n_points: int) -> dict:
+    """
+    Compara TDA vs. descriptores euclidianos (PCA y k-means) sobre nubes de puntos.
+    
+    Esta función es crítica para validar la Hipótesis H.E.1:
+    "La homología persistente ... superando a los descriptores euclidianos en tareas 
+    de clasificación y detección de anomalías."
+    
+    Retorna:
+        dict: Diccionario con métricas de TDA y descriptores euclidianos.
+    """
+    # --- TDA Metrics ---
+    clean_dgms = compute_persistence_diagram(clean_pts)
+    noisy_dgms = compute_persistence_diagram(noisy_pts)
+    
+    threshold = 1.5
+    clean_filtered = filter_persistence_diagram(clean_dgms, threshold)
+    noisy_filtered = filter_persistence_diagram(noisy_dgms, threshold)
+    clean_diameter = compute_diameter(clean_pts)
+    noisy_diameter = compute_diameter(noisy_pts)
+    clean_normalized = normalize_diagram(clean_filtered, clean_diameter)
+    noisy_normalized = normalize_diagram(noisy_filtered, noisy_diameter)
+    clean_arr = _safe_stack(clean_normalized)
+    noisy_arr = _safe_stack(noisy_normalized)
+    
+    betti0_noisy, betti1_noisy = betti_numbers(np.hstack([noisy_arr, np.zeros((noisy_arr.shape[0], 1))])) if noisy_arr.shape[0] > 0 else (0, 0)
+    
+    # --- Euclidean Descriptors (PCA) ---
+    pca = PCA(n_components=2)
+    pca_clean = pca.fit_transform(clean_pts)
+    pca_noisy = pca.fit_transform(noisy_pts)
+    
+    # --- Euclidean Descriptors (k-means) ---
+    kmeans_clean = KMeans(n_clusters=3, random_state=42).fit(clean_pts)
+    kmeans_noisy = KMeans(n_clusters=3, random_state=42).fit(noisy_pts)
+    
+    return {
+        # TDA metrics
+        'betti0_noisy': float(betti0_noisy),
+        'betti1_noisy': float(betti1_noisy),
+        # PCA descriptors
+        'pca_inertia_clean': float(np.sum(pca.explained_variance_)),
+        'pca_inertia_noisy': float(np.sum(pca.explained_variance_)),
+        # k-means descriptors
+        'kmeans_inertia_clean': float(kmeans_clean.inertia_),
+        'kmeans_inertia_noisy': float(kmeans_noisy.inertia_),
+        'kmeans_n_clusters': 3
+    }
+
+
+# ============== Experiment ==============
+
+def run_tda_experiment(shape: str, noise_levels: list[float] = [0.10, 0.15, 0.20], 
+                       n_rep: int = 100, n_points: int = 200, seed: int = 42) -> dict:
+    """Ejecuta el pipeline TDA con preprocesamiento.
+
+    Procesa el pipeline:
+    * Filtrar diagramas de persistencia por umbral
+    * Normalizar por diámetro
+
+    Parámetros:
+        shape (str): Forma a generar ('esfera', 'toro', 'cubo').
+        noise_levels (list[float]): Lista de desviaciones estándar de ruido. Por defecto [0.10, 0.15, 0.20].
+        n_rep (int): Número de repeticiones del experimento. Por defecto 100.
+        n_points (int): Número de puntos por nube. Por defecto 200.
+        seed (int): Semilla para reproducibilidad. Por defecto 42.
+
+    Retorna:
+        dict: Estadísticas del experimento para cada nivel de ruido.
+    """
+    np.random.seed(seed)
+    results = {}
+    threshold = 1.5  # persistence_threshold consistent with SIMP
+
+    for noise in noise_levels:
+        betti0_list = []
+        betti1_list = []
+        wasserstein_list = []
+        bottleneck_list = []
+        tda_vs_euclidean_list = []  # Nueva lista para métricas de comparación
+
+        for rep in range(n_rep):
+            # Nube de puntos limpia
+            clean_pts = generate_cloud(shape, n_points)
+            clean_dgms = compute_persistence_diagram(clean_pts)
+
+            # Preprocesar diagrama limpio
+            clean_filtered = filter_persistence_diagram(clean_dgms, threshold)
+            clean_diameter = compute_diameter(clean_pts)
+            clean_normalized = normalize_diagram(clean_filtered, clean_diameter)
+            clean_arr = _safe_stack(clean_normalized)
+
+            # Nube de puntos con ruido
+            noisy_pts = add_gaussian_noise(clean_pts, noise)
+            noisy_dgms = compute_persistence_diagram(noisy_pts)
+            noisy_filtered = filter_persistence_diagram(noisy_dgms, threshold)
+            noisy_diameter = compute_diameter(noisy_pts)
+            noisy_normalized = normalize_diagram(noisy_filtered, noisy_diameter)
+            noisy_arr = _safe_stack(noisy_normalized)
+
+            # Números de Betti con Def. 8.1: τ · diam(X)
+            diam_noisy = compute_diameter(noisy_pts)
+            b0_n, b1_n = betti_persistente(noisy_dgms, tau=0.15, diam=diam_noisy)
+            betti0_list.append(float(b0_n))
+            betti1_list.append(float(b1_n))
+
+            # Distancias
+            if clean_arr.shape[0] > 0 and noisy_arr.shape[0] > 0:
+                try:
+                    w_dist = compute_wasserstein_distance(clean_arr, noisy_arr)
+                    bn_dist = compute_bottleneck_distance(clean_arr, noisy_arr)
+                except Exception:
+                    w_dist = 0.0
+                    bn_dist = 0.0
+            else:
+                w_dist = 0.0
+                bn_dist = 0.0
+
+            wasserstein_list.append(w_dist)
+            bottleneck_list.append(bn_dist)
+            
+            # Nueva comparación TDA vs. euclidiana
+            comparison = compare_tda_vs_euclidean(clean_pts, noisy_pts, noise, n_points)
+            tda_vs_euclidean_list.append(comparison)
+
+        # Estadísticas TDA
+        results[noise] = {
+            'betti0_mean': float(np.mean(betti0_list)),
+            'betti0_std': float(np.std(betti0_list)),
+            'betti1_mean': float(np.mean(betti1_list)),
+            'betti1_std': float(np.std(betti1_list)),
+            'wasserstein_mean': float(np.mean(wasserstein_list)),
+            'wasserstein_std': float(np.std(wasserstein_list)),
+            'bottleneck_mean': float(np.mean(bottleneck_list)),
+            'bottleneck_std': float(np.std(bottleneck_list)),
+        }
+        
+        # Añadir estadísticas de comparación TDA vs. euclidiano
+        for key, val in tda_vs_euclidean_list[0].items():
+            results[noise][f'tda_vs_euclidean_{key}'] = float(np.mean([d[key] for d in tda_vs_euclidean_list]))
+
+    return results
+
+
+# ============== Output ==============
+
+def _save_results_to_csv(results: dict, shape: str):
+    """Guarda los resultados del experimento en un archivo CSV.
+
+    Parámetros:
+        results (dict): Diccionario que mapea niveles de ruido a estadísticas.
+        shape (str): Nombre de la forma.
+
+    Retorna:
+        None
+    """
+    import csv
+    rows = []
+    for noise_level, stats in results.items():
+        rows.append({
+            'noise_level': noise_level,
+            'betti0_mean': stats['betti0_mean'],
+            'betti0_std': stats['betti0_std'],
+            'betti1_mean': stats['betti1_mean'],
+            'betti1_std': stats['betti1_std'],
+            'wasserstein_mean': stats['wasserstein_mean'],
+            'wasserstein_std': stats['wasserstein_std'],
+            'bottleneck_mean': stats['bottleneck_mean'],
+            'bottleneck_std': stats['bottleneck_std'],
+        })
+    csv_path = DATA_DIR / f"tda_{shape}_results.csv"
+    fieldnames = ['noise_level', 'betti0_mean', 'betti0_std', 'betti1_mean', 'betti1_std',
+                  'wasserstein_mean', 'wasserstein_std', 'bottleneck_mean', 'bottleneck_std']
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"Results saved to {csv_path}")
+
+
+def main():
+    """Función principal de ejecución del script de experimentos del pipeline TDA.
+
+    Retorna:
+        None
+    """
+    import argparse
+    parser = argparse.ArgumentParser(description="Ejecutar experimentos del pipeline TDA en nubes de puntos sintéticas.")
+    parser.add_argument('--shape', type=str, required=True, choices=['esfera', 'toro', 'cubo'],
+                        help='Forma para generar la nube de puntos.')
+    parser.add_argument('--noise_levels', type=float, nargs='+', default=[0.10, 0.15, 0.20],
+                        help='Lista de niveles de ruido (como fracción del diámetro).')
+    parser.add_argument('--n_rep', type=int, default=100,
+                        help='Número de repeticiones por nivel de ruido.')
+    parser.add_argument('--n_points', type=int, default=200,
+                        help='Número de puntos por nube.')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Semilla aleatoria para reproducibilidad.')
+    args = parser.parse_args()
+
+    print(f"Running TDA experiment on {args.shape} with {args.n_points} points, {args.n_rep} reps, noise levels {args.noise_levels}")
+    results = run_tda_experiment(
+        shape=args.shape,
+        noise_levels=args.noise_levels,
+        n_rep=args.n_rep,
+        n_points=args.n_points,
+        seed=args.seed
+    )
+    for noise, stats in results.items():
+        print(f"Ruido {noise:.2f}: beta0={stats['betti0_mean']:.2f}±{stats['betti0_std']:.2f}, "
+              f"beta1={stats['betti1_mean']:.2f}±{stats['betti1_std']:.2f}, "
+              f"W={stats['wasserstein_mean']:.4f}±{stats['wasserstein_std']:.4f}, "
+              f"B={stats['bottleneck_mean']:.4f}±{stats['bottleneck_std']:.4f}, "
+              f"PCA_clean={stats['tda_vs_euclidean_pca_inertia_clean']:.4f}, "
+              f"PCA_noisy={stats['tda_vs_euclidean_pca_inertia_noisy']:.4f}, "
+              f"Kmeans_clean={stats['tda_vs_euclidean_kmeans_inertia_clean']:.4f}, "
+              f"Kmeans_noisy={stats['tda_vs_euclidean_kmeans_inertia_noisy']:.4f}")
+    _save_results_to_csv(results, args.shape)
+
+
+if __name__ == "__main__":
+    main()

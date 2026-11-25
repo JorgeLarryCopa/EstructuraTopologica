@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual env
+.venv/
+
+# Build output
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+openspec/
+
+
+# Docs
+*.pdf
+*.txt
+!requirements*.txt
+Makefile
+
+# Material fuente de referencia (Cap. V corregido)
+figuras_capV_completo.zip
+8.Figuras.rar
+8.Figuras/

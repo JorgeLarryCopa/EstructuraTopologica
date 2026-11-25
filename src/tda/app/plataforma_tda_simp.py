@@ -1,0 +1,301 @@
+"""Página principal — Aplicación de la estructura topológica a problemas complejos de ingeniería.
+
+Landing page con navegación a los 4 módulos:
+  1. H.E.1 — Robustez TDA vs Euclidianos
+  2. H.E.2 — Optimización SIMP (evaluación topológica post hoc)
+  3. H.G. — Hipótesis General (síntesis)
+  4. Ejemplo — Viga 1D
+"""
+# ══════════════════════════════════════════════════════════════
+# FIX PyInstaller: forzar backends matplotlib ANTES de cualquier otro import.
+# ══════════════════════════════════════════════════════════════
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.backends.backend_pdf
+import matplotlib.backends.backend_agg
+import os
+import sys as _sys
+if getattr(_sys, "frozen", False):
+    _mei = _sys._MEIPASS
+    os.environ.setdefault("MATPLOTLIBDATA",
+                          os.path.join(_mei, "matplotlib", "mpl-data"))
+del os, _sys
+
+# ══════════════════════════════════════════════════════════════
+
+import streamlit as st
+
+from tda.app.theme import landing_card, footer_style, update_hero_orange, responsive_style, ORANGE
+
+# ==========================================
+# CONFIGURACIÓN DE PÁGINA (DEBE SER EL PRIMER COMANDO STREAMLIT)
+# ==========================================
+st.set_page_config(
+    page_title=("Aplicación de la estructura topológica a problemas complejos "
+                "de ingeniería: evaluación post hoc del número de Betti persistente"),
+    layout="wide",
+    page_icon="📐"
+)
+
+st.markdown(responsive_style(), unsafe_allow_html=True)
+
+# ── Sidebar: configuración de exportación (.exe) ──
+from tda.app.download_utils import export_settings_ui
+export_settings_ui()
+
+# ==========================================
+# LANDING PAGE
+# ==========================================
+
+# ── Hero section premium con logos dentro de la tarjeta ──
+import os as _os
+import sys as _sys
+import base64 as _b64
+
+# Handle PyInstaller bundle path
+def _get_base_dir():
+    if getattr(_sys, "frozen", False):
+        return _sys._MEIPASS
+    return _os.path.dirname(__file__)
+
+# Priority: _MEIPASS/img (frozen) > src/img (dev) > cwd/img (fallback)
+_logo_dir = None
+_candidates = [
+    _os.path.join(_get_base_dir(), "img"),               # frozen: _MEIPASS/img
+    _os.path.join(_get_base_dir(), "..", "..", "img"),   # dev: src/tda/app -> src/img
+    _os.path.join(".", "img"),                             # cwd fallback
+]
+for _c in _candidates:
+    if _os.path.isdir(_c):
+        _logo_dir = _c
+        break
+if _logo_dir is None:
+    _logo_dir = _candidates[0]  # will produce empty tags gracefully
+
+def _img_to_base64(path):
+    if _os.path.exists(path):
+        with open(path, "rb") as f:
+            return _b64.b64encode(f.read()).decode()
+    return None
+
+_uagrm_b64 = _img_to_base64(_os.path.join(_logo_dir, "logoUAGRM.png"))
+_upi_b64 = _img_to_base64(_os.path.join(_logo_dir, "Logo-UPI.png"))
+
+_uagrm_tag = f'<img src="data:image/png;base64,{_uagrm_b64}" style="max-width:100%;object-fit:contain;" />' if _uagrm_b64 else ""
+_upi_tag = f'<img src="data:image/png;base64,{_upi_b64}" style="max-width:100%;object-fit:contain;" />' if _upi_b64 else ""
+
+_bg_animation = "heroGradient 8s ease infinite"
+
+st.markdown(update_hero_orange(f"""
+<style>
+@keyframes heroGradient {{
+    0% {{ background-position: 0% 50%; }}
+    50% {{ background-position: 100% 50%; }}
+    100% {{ background-position: 0% 50%; }}
+}}
+.hero-container {{
+    background:linear-gradient(135deg, #2c1a00 0%, #3d2200 40%, #1a0f00 70%, #2c1a00 100%);
+    background-size:200% 200%;
+    animation:{_bg_animation};
+    padding:2rem 2.5rem;
+    border-radius:20px;
+    color:white;
+    margin-bottom:2rem;
+    box-shadow:0 12px 40px rgba(0,0,0,0.25);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:1rem;
+    border-left:5px solid {ORANGE};
+    overflow:hidden;
+}}
+.hero-logo img {{
+    height:120px;
+    max-width:100%;
+    object-fit:contain;
+}}
+.hero-title {{
+    flex:1 1 300px;
+    text-align:center;
+    min-width:280px;
+}}
+.hero-title h1 {{
+    margin:0;
+    font-weight:800;
+    font-size:2.2rem;
+    letter-spacing:-0.02em;
+    color:{ORANGE};
+}}
+.hero-title p {{
+    margin:0.6rem 0 0 0;
+    opacity:0.9;
+    font-size:1rem;
+    max-width:600px;
+    margin-left:auto;
+    margin-right:auto;
+    line-height:1.5;
+}}
+.hero-title .subtitle {{
+    margin:0.3rem 0 0 0;
+    opacity:0.7;
+    font-size:0.85rem;
+}}
+@media (max-width: 768px) {{
+    .hero-container {{
+        padding:1.2rem 1rem;
+        flex-direction:column;
+        text-align:center;
+    }}
+    .hero-logo img {{
+        height:80px;
+    }}
+    .hero-title h1 {{
+        font-size:1.5rem;
+    }}
+    .hero-title p {{
+        font-size:0.9rem;
+    }}
+}}
+</style>
+<div class="hero-container">
+    <div class="hero-logo">
+        {_uagrm_tag}
+    </div>
+    <div class="hero-title">
+        <h1>Aplicación de la estructura topológica a problemas complejos de ingeniería</h1>
+        <p>
+            Evaluación post hoc del número de Betti persistente como descriptor
+            estable en TDA y SIMP.
+        </p>
+        <p class="subtitle">
+            Jorge Larry Copa Cruz · Maestria en Matematica · UAGRM · 2026
+        </p>
+    </div>
+    <div class="hero-logo">
+        {_upi_tag}
+    </div>
+</div>
+"""), unsafe_allow_html=True)
+
+# ── Cards de navegación ──
+st.markdown("### Módulos de Análisis")
+
+# CSS para integrar el botón de navegación con la tarjeta
+st.markdown("""
+<style>
+div[data-testid="stPageLink"] a {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="stPageLink"] a:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Fila de Tarjetas de Acceso ──
+cols = st.columns(4)
+
+with cols[0]:
+    st.markdown(landing_card(
+        icon="📐",
+        title="H.E.1 — Robustez",
+        description="Validación de invariantes topológicos bajo ruido gaussiano y comparación con descriptores euclidianos.",
+        variant="orange"
+    ), unsafe_allow_html=True)
+    st.page_link("pages/1_H.E.1_Robustez_TDA_vs_Euclidianos.py", label="📐 Abrir H.E.1", width='stretch')
+
+with cols[1]:
+    st.markdown(landing_card(
+        icon="🧮",
+        title="H.E.2 — Optimización",
+        description="SIMP para optimización de compliance y evaluación topológica post hoc del diseño (β₀, β₁).",
+        variant="orange"
+    ), unsafe_allow_html=True)
+    st.page_link("pages/2_H.E.2_Optimizacion_SIMP_Metrica_Compuesta.py", label="🧮 Abrir H.E.2", width='stretch')
+
+with cols[2]:
+    st.markdown(landing_card(
+        icon="🧭",
+        title="H.G. — Hipótesis General",
+        description="Síntesis de los veredictos de H.E.1a/b/c y H.E.2a/b (Tablas 5.9 y 5.3).",
+        variant="orange"
+    ), unsafe_allow_html=True)
+    st.page_link("pages/3_H.G._Hipotesis_General.py", label="🧭 Abrir H.G.", width='stretch')
+
+with cols[3]:
+    st.markdown(landing_card(
+        icon="🧪",
+        title="Ejemplo Viga 1D vs 2D",
+        description="Laboratorio interactivo: Comparación de optimización analítica 1D vs topológica SIMP 2D.",
+        variant="orange"
+    ), unsafe_allow_html=True)
+    st.page_link("pages/4_Ejemplo_Viga_1D_vs_2D.py", label="🧪 Abrir Ejemplo", width='stretch')
+
+
+# ── Núcleo computacional (SIMP + TDA) ──
+with st.expander("🔬 Núcleo computacional — SIMP + TDA", expanded=False):
+    st.markdown(
+        "El tramo que une SIMP con TDA: filtro de densidad, FEM, sensibilidad "
+        "adjunta, actualización OC y doble cómputo topológico."
+    )
+    st.code(
+        '''# 1. Filtro de densidad: ρ̃ = Hρ/Hs (operador compacto)
+rho_tilde = self.filtrar_densidad(self.rho)
+
+# 2. FEM: E_e = E_min + ρ_e^p (E − E_min), luego K(ρ̃) U = F
+K = ensamblar_K_global(rho_tilde, self.DOFS, self.n_dof, self.K0, self.p)
+U = resolver_FEM(K, self.F, self.fixed, self.n_dof)
+
+# 3. Compliance y sensibilidad ∂M/∂ρ_e (Eq. 2.9)
+c, dc = calcular_compliance_sensibilidades(
+    U, rho_tilde, self.DOFS, self.K0, self.p
+)
+dc_filt = self.filtrar_densidad(dc)  # regla de la cadena del filtro
+
+# 4. OC con restricción de volumen sobre ρ̃, no sobre ρ cruda
+rho = actualizar_OC(
+    self.rho, dc_filt, self.f_V, rho_vol_fn=self.filtrar_densidad
+)
+
+# 5. Binarización que conserva volumen + doble cómputo topológico
+u_v, _ = self.umbral_volumen()
+grid = self.rho_tilde_final.reshape((self.ney, self.nex)) >= u_v
+res = betti_doble_computo(grid)          # Euler 8-conexo + GUDHI
+if not res["concordancia"]:
+    raise RuntimeError("Indicador topológico inválido")
+
+# 6. Persistencia del CAMPO f = 1 − ρ̃, no del grid binario
+dgm0, dgm1 = diagramas_campo(
+    self.rho_tilde_final.reshape((self.ney, self.nex))
+)''',
+        language="python",
+    )
+    st.markdown(
+        "- Cada bloque corresponde a una fórmula del Cap. II: `(2.7)` interpolación "
+        "SIMP, `(2.9)` sensibilidad adjunta, `(2.10)` cota convexa.\n"
+        "- El filtro no es cosmético: da existencia al problema continuo y obliga a "
+        "escalar `r_min` con la malla.\n"
+        "- La restricción de volumen se evalúa sobre `ρ̃`, la densidad física.\n"
+        "- `u_V` conserva `f_V`; no se fija a `0.5`.\n"
+        "- Euler y GUDHI tienen modos de fallo independientes; si discrepan, el código se detiene.\n"
+        "- El diagrama se calcula sobre `f = 1 − ρ̃` para que aplique el Teorema 2.1."
+    )
+
+# ── Footer ──
+st.markdown("---")
+st.markdown("---")
+st.markdown(f"""
+<div style="{footer_style()}">
+    <p style="margin:0;color:{ORANGE};font-weight:700;">
+        Jorge Larry Copa Cruz · Maestría en Matemática · UAGRM · 2026
+    </p>
+    <p style="margin:0.3rem 0 0 0;">
+        Tecnologías: Streamlit · Python · NumPy · Matplotlib · Plotly · Ripser · Scikit-learn
+    </p>
+</div>
+""", unsafe_allow_html=True)
